@@ -1,0 +1,61 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: proxy-service
+  
+  # Jackson配置
+  jackson:
+    default-property-inclusion: NON_NULL
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# Step-CA配置
+step-ca:
+  url: https://step.it.com
+  timeout: 30000
+
+# ACME4J配置
+acme:
+  account:
+    email: admin@example.com
+    key:
+      size: 2048
+  challenge:
+    timeout: 30000
+    retry-count: 3
+  certificate:
+    default-validity-days: 90
+
+# 代理配置
+proxy:
+  trust-all-certs: true
+  max-connections: 100
+  max-connections-per-route: 20
+
+# 日志配置
+logging:
+  level:
+    com.example.proxyservice: INFO
+    org.apache.http: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/proxy-service.log
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
