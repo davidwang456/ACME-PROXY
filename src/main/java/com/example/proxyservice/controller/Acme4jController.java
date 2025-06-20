@@ -71,6 +71,16 @@ public class Acme4jController {
     }
 
     /**
+     * 获取 ACME 服务器目录信息
+     */
+    @GetMapping("/directory")
+    public ResponseEntity<Map<String, Object>> getServerDirectory() {
+        log.info("Getting ACME server directory info");
+        Map<String, Object> directory = acme4jCertificateService.getServerDirectory();
+        return ResponseEntity.ok(directory);
+    }
+
+    /**
      * 健康检查
      */
     @GetMapping("/health")

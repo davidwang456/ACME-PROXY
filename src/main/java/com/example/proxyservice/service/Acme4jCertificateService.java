@@ -27,6 +27,12 @@ public class Acme4jCertificateService {
     @Value("${acme.account.key.size:2048}")
     private int accountKeySize;
 
+    @Value("${acme.challenge.timeout:30000}")
+    private int challengeTimeout;
+
+    @Value("${acme.challenge.retry-count:3}")
+    private int challengeRetryCount;
+
     /**
      * 生成证书
      */
@@ -89,8 +95,9 @@ public class Acme4jCertificateService {
         try {
             log.info("Downloading certificate with serial: {}", serialNumber);
             
-            // 这里简化实现，实际应该从存储中根据序列号查找证书
+            // 这里需要实现从存储中根据序列号查找证书
             // 或者通过 ACME 服务器查询证书状态
+            // 暂时返回模拟响应
             
             CertificateResponse response = new CertificateResponse();
             response.setStatus("success");
@@ -247,6 +254,22 @@ public class Acme4jCertificateService {
         } catch (Exception e) {
             log.error("Error getting orders", e);
             return List.of(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取 ACME 服务器目录信息
+     */
+    public Map<String, Object> getServerDirectory() {
+        try {
+            Map<String, Object> directory = new HashMap<>();
+            directory.put("directory", stepCaUrl + "/acme/directory");
+            directory.put("status", "available");
+            directory.put("version", "2.0");
+            return directory;
+        } catch (Exception e) {
+            log.error("Error getting server directory", e);
+            return Map.of("error", e.getMessage());
         }
     }
 } 
