@@ -494,7 +494,7 @@ proxy-service/
 
 ---
 
-**作者**：Manus AI  
+**作者**：Hello World  
 **版本**：1.0.0  
 **最后更新**：2024年12月
 
