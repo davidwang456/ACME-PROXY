@@ -81,10 +81,16 @@ public class ProxyService {
             return ContentType.APPLICATION_JSON;
         }
         
+        // 先清理 Content-Type 字符串，移除通配符
+        String sanitizedContentType = sanitizeContentType(contentTypeStr);
+        if (sanitizedContentType == null) {
+            return ContentType.APPLICATION_JSON;
+        }
+        
         try {
-            return ContentType.parse(contentTypeStr);
+            return ContentType.parse(sanitizedContentType);
         } catch (Exception e) {
-            log.warn("Failed to parse Content-Type: {}, using default", contentTypeStr);
+            log.warn("Failed to parse Content-Type: {}, using default", sanitizedContentType);
             return ContentType.APPLICATION_JSON;
         }
     }
@@ -130,17 +136,24 @@ public class ProxyService {
             String headerName = headerNames.nextElement();
             String headerValue = request.getHeader(headerName);
             
+            log.debug("Processing header: {} = {}", headerName, headerValue);
+            
             // 跳过一些不应该转发的头
             if (!shouldSkipHeader(headerName)) {
                 // 特殊处理 Content-Type 头，避免通配符子类型
                 if ("content-type".equals(headerName.toLowerCase())) {
                     String sanitizedContentType = sanitizeContentType(headerValue);
                     if (sanitizedContentType != null) {
+                        log.debug("Setting sanitized Content-Type: {} -> {}", headerValue, sanitizedContentType);
                         httpRequest.setHeader(headerName, sanitizedContentType);
+                    } else {
+                        log.debug("Skipping null Content-Type: {}", headerValue);
                     }
                 } else {
                     httpRequest.setHeader(headerName, headerValue);
                 }
+            } else {
+                log.debug("Skipping header: {}", headerName);
             }
         }
     }
@@ -153,26 +166,39 @@ public class ProxyService {
             return null;
         }
         
+        String trimmedContentType = contentType.trim();
+        
         // 移除通配符子类型，使用默认的 application/json
-        if (contentType.contains("*/*") || contentType.contains("*/")) {
+        if (trimmedContentType.contains("*/*") || trimmedContentType.contains("*/")) {
+            log.debug("Replacing wildcard Content-Type '{}' with application/json", trimmedContentType);
             return "application/json";
         }
         
         // 如果包含通配符，使用具体的类型
-        if (contentType.contains("*")) {
+        if (trimmedContentType.contains("*")) {
             // 根据主类型返回具体的子类型
-            if (contentType.startsWith("application/")) {
+            if (trimmedContentType.startsWith("application/")) {
+                log.debug("Replacing wildcard application Content-Type '{}' with application/json", trimmedContentType);
                 return "application/json";
-            } else if (contentType.startsWith("text/")) {
+            } else if (trimmedContentType.startsWith("text/")) {
+                log.debug("Replacing wildcard text Content-Type '{}' with text/plain", trimmedContentType);
                 return "text/plain";
-            } else if (contentType.startsWith("image/")) {
+            } else if (trimmedContentType.startsWith("image/")) {
+                log.debug("Replacing wildcard image Content-Type '{}' with image/png", trimmedContentType);
                 return "image/png";
             } else {
+                log.debug("Replacing wildcard Content-Type '{}' with application/octet-stream", trimmedContentType);
                 return "application/octet-stream";
             }
         }
         
-        return contentType;
+        // 检查是否是有效的 Content-Type 格式
+        if (!trimmedContentType.contains("/")) {
+            log.debug("Invalid Content-Type format '{}', using application/json", trimmedContentType);
+            return "application/json";
+        }
+        
+        return trimmedContentType;
     }
 
     private boolean shouldSkipHeader(String headerName) {
