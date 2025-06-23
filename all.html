@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+    <div layout:fragment="content">
+        <!-- 错误和成功消息 -->
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        
+        <!-- 注册域名表单 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>注册新域名</h5>
+            </div>
+            <div class="card-body">
+                <form th:action="@{/domains}" th:object="${newDomain}" method="post">
+                    <div class="mb-3">
+                        <label for="domainName" class="form-label">域名</label>
+                        <input type="text" class="form-control" id="domainName" th:field="*{domainName}" required>
+                        <div class="form-text">
+                            内部域名: *.csky, *.asky<br>
+                            外部域名: *.com.hk
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">注册并申请证书</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 域名列表 -->
+        <div class="card">
+            <div class="card-header">
+                <h5>已注册域名</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>域名</th>
+                            <th>类型</th>
+                            <th>证书签发时间</th>
+                            <th>证书过期时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="domain : ${domains}">
+                            <td th:text="${domain.id}"></td>
+                            <td th:text="${domain.domainName}"></td>
+                            <td th:text="${domain.domainType}"></td>
+                            <td th:text="${domain.certificateIssuedAt != null ? #temporals.format(domain.certificateIssuedAt, 'yyyy-MM-dd HH:mm:ss') : '-'}"></td>
+                            <td th:text="${domain.certificateExpiresAt != null ? #temporals.format(domain.certificateExpiresAt, 'yyyy-MM-dd HH:mm:ss') : '-'}"></td>
+                            <td>
+                                <span th:if="${domain.active}" class="badge bg-success">活跃</span>
+                                <span th:unless="${domain.active}" class="badge bg-danger">禁用</span>
+                            </td>
+                            <td>
+                                <a th:href="@{'/domains/' + ${domain.id}}" class="btn btn-sm btn-danger" 
+                                   onclick="return confirm('确定要删除这个域名吗?')">删除</a>
+                                <a th:href="@{'/domains/download-cert/' + ${domain.id}}" class="btn btn-sm btn-primary">下载证书</a>
+                            </td>
+                        </tr>
+                        <tr th:if="${domains.empty}">
+                            <td colspan="7" class="text-center">暂无注册域名</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
