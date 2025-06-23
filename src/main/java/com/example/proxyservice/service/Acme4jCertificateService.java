@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
+import javax.net.ssl.*;
 import java.security.*;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -32,6 +34,53 @@ public class Acme4jCertificateService {
 
     @Value("${acme.challenge.retry-count:3}")
     private int challengeRetryCount;
+
+    @Value("${proxy.trust-all-certs:true}")
+    private boolean trustAllCerts;
+
+    @PostConstruct
+    public void init() {
+        if (trustAllCerts) {
+            try {
+                configureSSLTrustAll();
+                log.info("ACME4J SSL 配置完成：已禁用证书和主机名验证（仅用于测试）");
+            } catch (Exception e) {
+                log.error("配置 ACME4J SSL 失败", e);
+            }
+        }
+    }
+
+    /**
+     * 配置 SSL 以信任所有证书和主机名（仅用于测试环境）
+     */
+    private void configureSSLTrustAll() throws Exception {
+        // 创建信任所有证书的 TrustManager
+        TrustManager[] trustAllCerts = new TrustManager[] {
+            new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { return null; }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+                public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+            }
+        };
+
+        // 创建 SSL 上下文
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+        
+        // 设置默认 SSL 套接字工厂
+        HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+        
+        // 创建信任所有主机名的验证器
+        HostnameVerifier allHostsValid = new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true; // 信任所有主机名
+            }
+        };
+        
+        // 设置默认主机名验证器
+        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+    }
 
     /**
      * 生成证书

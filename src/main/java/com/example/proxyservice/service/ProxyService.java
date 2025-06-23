@@ -40,8 +40,12 @@ public class ProxyService {
 
         log.info("Forwarding {} request to: {}", method, targetUrl);
 
+        // 获取 Content-Type
+        String contentType = request.getContentType();
+        ContentType httpContentType = parseContentType(contentType);
+
         // 创建HTTP请求
-        HttpUriRequestBase httpRequest = createHttpRequest(method, targetUrl, body);
+        HttpUriRequestBase httpRequest = createHttpRequest(method, targetUrl, body, httpContentType);
         
         // 复制请求头
         copyRequestHeaders(request, httpRequest);
@@ -69,7 +73,23 @@ public class ProxyService {
         }
     }
 
-    private HttpUriRequestBase createHttpRequest(String method, String url, byte[] body) {
+    /**
+     * 解析 Content-Type 字符串为 ContentType 对象
+     */
+    private ContentType parseContentType(String contentTypeStr) {
+        if (contentTypeStr == null || contentTypeStr.trim().isEmpty()) {
+            return ContentType.APPLICATION_JSON;
+        }
+        
+        try {
+            return ContentType.parse(contentTypeStr);
+        } catch (Exception e) {
+            log.warn("Failed to parse Content-Type: {}, using default", contentTypeStr);
+            return ContentType.APPLICATION_JSON;
+        }
+    }
+
+    private HttpUriRequestBase createHttpRequest(String method, String url, byte[] body, ContentType contentType) {
         HttpUriRequestBase request;
         
         switch (method.toUpperCase()) {
@@ -79,13 +99,13 @@ public class ProxyService {
             case "POST":
                 request = new HttpPost(url);
                 if (body != null && body.length > 0) {
-                    ((HttpPost) request).setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
+                    ((HttpPost) request).setEntity(new ByteArrayEntity(body, contentType));
                 }
                 break;
             case "PUT":
                 request = new HttpPut(url);
                 if (body != null && body.length > 0) {
-                    ((HttpPut) request).setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
+                    ((HttpPut) request).setEntity(new ByteArrayEntity(body, contentType));
                 }
                 break;
             case "DELETE":
@@ -94,7 +114,7 @@ public class ProxyService {
             case "PATCH":
                 request = new HttpPatch(url);
                 if (body != null && body.length > 0) {
-                    ((HttpPatch) request).setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
+                    ((HttpPatch) request).setEntity(new ByteArrayEntity(body, contentType));
                 }
                 break;
             default:
@@ -112,9 +132,47 @@ public class ProxyService {
             
             // 跳过一些不应该转发的头
             if (!shouldSkipHeader(headerName)) {
-                httpRequest.setHeader(headerName, headerValue);
+                // 特殊处理 Content-Type 头，避免通配符子类型
+                if ("content-type".equals(headerName.toLowerCase())) {
+                    String sanitizedContentType = sanitizeContentType(headerValue);
+                    if (sanitizedContentType != null) {
+                        httpRequest.setHeader(headerName, sanitizedContentType);
+                    }
+                } else {
+                    httpRequest.setHeader(headerName, headerValue);
+                }
             }
         }
+    }
+
+    /**
+     * 清理 Content-Type 头，移除通配符子类型
+     */
+    private String sanitizeContentType(String contentType) {
+        if (contentType == null || contentType.trim().isEmpty()) {
+            return null;
+        }
+        
+        // 移除通配符子类型，使用默认的 application/json
+        if (contentType.contains("*/*") || contentType.contains("*/")) {
+            return "application/json";
+        }
+        
+        // 如果包含通配符，使用具体的类型
+        if (contentType.contains("*")) {
+            // 根据主类型返回具体的子类型
+            if (contentType.startsWith("application/")) {
+                return "application/json";
+            } else if (contentType.startsWith("text/")) {
+                return "text/plain";
+            } else if (contentType.startsWith("image/")) {
+                return "image/png";
+            } else {
+                return "application/octet-stream";
+            }
+        }
+        
+        return contentType;
     }
 
     private boolean shouldSkipHeader(String headerName) {

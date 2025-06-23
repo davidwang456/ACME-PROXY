@@ -8,6 +8,8 @@ import org.shredzone.acme4j.util.CSRBuilder;
 
 import java.security.KeyPair;
 import java.security.Security;
+import javax.net.ssl.*;
+import java.security.cert.X509Certificate;
 
 public class SafeAcmeClient {
     public static void main(String[] args) {
@@ -15,10 +17,13 @@ public class SafeAcmeClient {
             // 1. 添加安全提供程序
             Security.addProvider(new BouncyCastleProvider());
             
-            // 2. 使用测试环境（推荐）
+            // 2. 配置 SSL 以信任所有证书和主机名（仅用于测试）
+            configureSSLTrustAll();
+            
+            // 3. 使用测试环境（推荐）
             Session session = new Session("https://localhost:9000");
             
-            // 3. 创建账户
+            // 4. 创建账户
             KeyPair accountKey = KeyPairUtils.createKeyPair();
             Account account = new AccountBuilder()
                 .addEmail("admin@itd.asky")
@@ -28,12 +33,12 @@ public class SafeAcmeClient {
                 
             System.out.println("账户创建成功: " + account.getLocation());
 
-            // 4. 订购证书
+            // 5. 订购证书
             Order order = account.newOrder()
                 .domains("example.com", "www.example.com")
                 .create();
 
-            // 5. 处理授权
+            // 6. 处理授权
             for (Authorization auth : order.getAuthorizations()) {
                 System.out.println("处理域名授权: " + auth.getIdentifier().getDomain());
                 
@@ -82,19 +87,19 @@ public class SafeAcmeClient {
                 System.out.println("域名 " + auth.getIdentifier().getDomain() + " 验证成功！");
             }
 
-            // 6. 生成域名密钥对
+            // 7. 生成域名密钥对
             KeyPair domainKey = KeyPairUtils.createKeyPair(4096);
             
-            // 7. 创建 CSR（证书签名请求）
+            // 8. 创建 CSR（证书签名请求）
             CSRBuilder csrb = new CSRBuilder();
             csrb.addDomains("example.com", "www.example.com");
             csrb.sign(domainKey);
             
-            // 8. 执行订单（使用 CSR 字节数组）
+            // 9. 执行订单（使用 CSR 字节数组）
             order.execute(csrb.getEncoded());
             System.out.println("订单已提交，等待证书生成...");
 
-            // 9. 等待证书生成完成
+            // 10. 等待证书生成完成
             int maxAttempts = 10;
             int attempt = 0;
             
@@ -118,11 +123,11 @@ public class SafeAcmeClient {
                 throw new RuntimeException("证书生成超时，最终状态: " + order.getStatus());
             }
 
-            // 10. 下载证书
+            // 11. 下载证书
             Certificate certificate = order.getCertificate();
             System.out.println("证书生成成功: " + certificate.getLocation());
             
-            // 11. 获取证书详情
+            // 12. 获取证书详情
             System.out.println("证书序列号: " + certificate.getCertificate().getSerialNumber());
             System.out.println("证书主题: " + certificate.getCertificate().getSubjectDN());
             System.out.println("证书颁发者: " + certificate.getCertificate().getIssuerDN());
@@ -133,5 +138,39 @@ public class SafeAcmeClient {
             System.err.println("ACME 操作失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * 配置 SSL 以信任所有证书和主机名（仅用于测试环境）
+     */
+    private static void configureSSLTrustAll() throws Exception {
+        // 创建信任所有证书的 TrustManager
+        TrustManager[] trustAllCerts = new TrustManager[] {
+            new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { return null; }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+                public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+            }
+        };
+
+        // 创建 SSL 上下文
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+        
+        // 设置默认 SSL 套接字工厂
+        HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+        
+        // 创建信任所有主机名的验证器
+        HostnameVerifier allHostsValid = new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true; // 信任所有主机名
+            }
+        };
+        
+        // 设置默认主机名验证器
+        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        
+        System.out.println("SSL 配置完成：已禁用证书和主机名验证（仅用于测试）");
     }
 }
