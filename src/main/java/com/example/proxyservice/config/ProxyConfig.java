@@ -17,6 +17,8 @@ import org.apache.hc.core5.http.config.Registry;
 import org.apache.hc.core5.http.config.RegistryBuilder;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
 
 @Configuration
 public class ProxyConfig implements WebMvcConfigurer {
@@ -33,7 +35,20 @@ public class ProxyConfig implements WebMvcConfigurer {
             SSLContext sslContext = SSLContextBuilder.create()
                     .loadTrustMaterial(TrustAllStrategy.INSTANCE)
                     .build();
-            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
+            
+            // 创建信任所有主机名的验证器
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                @Override
+                public boolean verify(String hostname, SSLSession session) {
+                    return true; // 信任所有主机名
+                }
+            };
+            
+            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+                    sslContext, 
+                    allHostsValid // 使用自定义的主机名验证器
+            );
+            
             Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
                     .register("http", PlainConnectionSocketFactory.getSocketFactory())
                     .register("https", sslSocketFactory)
