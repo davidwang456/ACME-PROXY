@@ -88,10 +88,63 @@ public class ProxyService {
         }
         
         try {
-            return ContentType.parse(sanitizedContentType);
+            // 使用更安全的方式创建 ContentType
+            return createContentTypeSafely(sanitizedContentType);
         } catch (Exception e) {
-            log.warn("Failed to parse Content-Type: {}, using default", sanitizedContentType);
+            log.warn("Failed to parse Content-Type: {}, using default", sanitizedContentType, e);
             return ContentType.APPLICATION_JSON;
+        }
+    }
+
+    /**
+     * 安全地创建 ContentType 对象
+     */
+    private ContentType createContentTypeSafely(String contentTypeStr) {
+        if (contentTypeStr == null || contentTypeStr.trim().isEmpty()) {
+            return ContentType.APPLICATION_JSON;
+        }
+        
+        String trimmed = contentTypeStr.trim();
+        
+        // 使用预定义的 ContentType 常量
+        if ("application/json".equals(trimmed)) {
+            return ContentType.APPLICATION_JSON;
+        } else if ("application/xml".equals(trimmed)) {
+            return ContentType.APPLICATION_XML;
+        } else if ("text/plain".equals(trimmed)) {
+            return ContentType.TEXT_PLAIN;
+        } else if ("text/html".equals(trimmed)) {
+            return ContentType.TEXT_HTML;
+        } else if ("application/octet-stream".equals(trimmed)) {
+            return ContentType.APPLICATION_OCTET_STREAM;
+        } else if ("application/x-www-form-urlencoded".equals(trimmed)) {
+            return ContentType.APPLICATION_FORM_URLENCODED;
+        } else if ("multipart/form-data".equals(trimmed)) {
+            return ContentType.MULTIPART_FORM_DATA;
+        } else if (trimmed.startsWith("application/")) {
+            // 对于其他 application 类型，尝试解析
+            try {
+                return ContentType.parse(trimmed);
+            } catch (Exception e) {
+                log.debug("Failed to parse application Content-Type: {}, using application/json", trimmed);
+                return ContentType.APPLICATION_JSON;
+            }
+        } else if (trimmed.startsWith("text/")) {
+            // 对于其他 text 类型，尝试解析
+            try {
+                return ContentType.parse(trimmed);
+            } catch (Exception e) {
+                log.debug("Failed to parse text Content-Type: {}, using text/plain", trimmed);
+                return ContentType.TEXT_PLAIN;
+            }
+        } else {
+            // 对于其他类型，尝试解析，失败则使用默认值
+            try {
+                return ContentType.parse(trimmed);
+            } catch (Exception e) {
+                log.debug("Failed to parse Content-Type: {}, using application/octet-stream", trimmed);
+                return ContentType.APPLICATION_OCTET_STREAM;
+            }
         }
     }
 
